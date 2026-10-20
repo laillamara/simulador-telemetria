@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E%E2%9A%A1%3C/text%3E%3C/svg%3E">
+<title>Telemetria — Esquemático Interativo</title>
+<style>
+body{margin:0;background:#e9eef3;font-family:Arial,sans-serif;color:#101828}
+header{padding:14px 22px;background:#fff;border-bottom:1px solid #d0d5dd}
+h2{margin:0;font-size:20px}.sub{font-size:12px;color:#667085;margin-top:4px}
+.wrap{padding:16px}.board{max-width:1250px;margin:auto;background-color:#fbfcfd;background-image:linear-gradient(#e9eef3 1px,transparent 1px),linear-gradient(90deg,#e9eef3 1px,transparent 1px);background-size:24px 24px;border:1px solid #d0d5dd;border-radius:12px;box-shadow:0 5px 18px #0001;overflow:hidden}
+svg{width:100%;height:auto;display:block}
+.sym{fill:#ffffff;stroke:#344054;stroke-width:2;filter:drop-shadow(0 2px 2px rgba(16,24,40,.12))}.pin{stroke:#344054;stroke-width:2}.net{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.pwr{stroke:#dc2626}.v5{stroke:#f97316}.v33{stroke:#7c3aed}.gnd{stroke:#475467}.canh{stroke:#eab308}.canl{stroke:#16a34a}.logic{stroke:#0284c7}.radio{stroke:#7f56d9;stroke-width:3;stroke-dasharray:9 7}.usb{stroke:#344054}
+.txt{font-size:12px;fill:#101828}.small{font-size:10px;fill:#344054}.title{font-size:13px;font-weight:bold}.netlabel{font-size:10px;font-weight:bold}
+.dot{filter:drop-shadow(0 0 3px currentColor)}
+.hot{fill:none;stroke:transparent;stroke-width:24;pointer-events:stroke;cursor:pointer}
+.tip{position:fixed;display:none;z-index:50;max-width:330px;background:#101828;color:#fff;border-radius:8px;padding:10px;font-size:12px;line-height:1.45;box-shadow:0 6px 18px #0005;pointer-events:none}
+.tip b{color:#84caff}
+.tip .from{color:#86efac;font-weight:bold}.tip .to{color:#fdb022;font-weight:bold}
+.tip .val{display:inline-block;margin-top:5px;padding:3px 6px;background:#344054;border-radius:4px}
+#wireHover .hot:hover{stroke:rgba(56,189,248,.18);stroke-width:28}
+.legend{padding:10px 16px 14px;font-size:11px;color:#475467;border-top:1px solid #eaecf0}
+
+#startOverlay{position:fixed;inset:0;background:rgba(16,24,40,.88);z-index:100;display:flex;align-items:center;justify-content:center}
+#startCard{width:min(520px,90vw);background:white;border-radius:14px;padding:26px;text-align:center;box-shadow:0 15px 45px #0008}
+#startCard h2{font-size:22px;margin:0 0 10px}#startCard p{font-size:13px;line-height:1.5;color:#475467}
+#startBtn{border:0;border-radius:9px;background:#067647;color:white;font-size:16px;font-weight:bold;padding:12px 22px;cursor:pointer}
+#startBtn:hover{filter:brightness(.94)}
+#runState{display:inline-block;margin-left:10px;padding:4px 8px;border-radius:999px;background:#fee4e2;color:#b42318;font-size:11px;font-weight:bold}
+.compInfo{padding:14px 18px;border-top:1px solid #eaecf0;background:#fcfcfd}
+.compInfo h3{margin:0 0 8px;font-size:15px}.compGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+.compCard{border:1px solid #d0d5dd;border-radius:8px;padding:9px;font-size:11px;line-height:1.4;background:white}
+.compCard b{display:block;font-size:12px;margin-bottom:3px}
+
+#consumoTotal{
+ position:fixed;right:18px;top:18px;z-index:80;background:#101828;color:white;
+ border-radius:10px;padding:10px 13px;box-shadow:0 5px 16px #0004;
+ font-size:11px;line-height:1.45;min-width:185px
+}
+#consumoTotal b{font-size:12px;color:#84caff}
+#consumoTotal .big{font-size:16px;font-weight:bold;color:#86efac}
+
+#circuitControls{position:fixed;right:18px;top:125px;z-index:82}
+#powerToggle{border:0;border-radius:9px;padding:10px 15px;font-weight:bold;cursor:pointer;background:#b42318;color:#fff;box-shadow:0 4px 12px #0002}
+#powerToggle.off{background:#067647}
+.deviceTag{fill:#f2f4f7;stroke:#d0d5dd;stroke-width:1}
+.junction{stroke:#fff;stroke-width:1}
+
+/* ===== Refinamento visual (somente estilo; conteúdo e lógica inalterados) ===== */
+:root{--ink:#0f172a;--muted:#64748b;--line:#dbe3ec;--accent:#2563eb;--card:#fff}
+html{scroll-behavior:smooth}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);
+ background:radial-gradient(1100px 500px at 15% -10%,#dbeafe 0,transparent 60%),radial-gradient(900px 500px at 100% 0,#ede9fe 0,transparent 55%),#eef2f7;
+ background-attachment:fixed;-webkit-font-smoothing:antialiased}
+header{background:rgba(255,255,255,.82);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+ border-top:4px solid var(--accent);padding:16px 26px;position:relative}
+header h2{font-size:22px;font-weight:750;letter-spacing:-.01em;color:var(--ink)}
+.sub{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+#runState{padding:4px 10px;font-size:11px;letter-spacing:.04em;vertical-align:middle;box-shadow:inset 0 0 0 1px rgba(180,35,24,.15)}
+.wrap{padding:22px 16px 40px}
+.board{border:1px solid var(--line);border-radius:18px;background-color:#fff;
+ background-image:radial-gradient(#cbd5e1 1px,transparent 1.2px);background-size:22px 22px;
+ box-shadow:0 1px 2px #0f172a0d,0 14px 40px -12px #0f172a30}
+.sym{fill:#fff;stroke:#475569;stroke-width:1.8;rx:10px;ry:10px;filter:drop-shadow(0 4px 8px rgba(15,23,42,.10));transition:stroke .15s,filter .15s}
+.hover{cursor:pointer}
+.hover:hover .sym{stroke:var(--accent);filter:drop-shadow(0 6px 14px rgba(37,99,235,.28))}
+.pin{stroke:#475569;stroke-width:2;stroke-linecap:round}
+.net{stroke-width:3.5}
+.radio{stroke-width:3.5}
+.txt{fill:var(--ink)}
+.title{font-weight:700;letter-spacing:.01em}
+.small{fill:#475569}
+.netlabel{letter-spacing:.03em;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.deviceTag{fill:#eef2ff;stroke:#c7d2fe;rx:12px;ry:12px}
+#realisticDetails .small[font-weight="bold"]{fill:#3730a3;letter-spacing:.06em}
+.dot{filter:drop-shadow(0 0 4px currentColor)}
+.tip{background:rgba(15,23,42,.96);border:1px solid rgba(148,163,184,.25);border-radius:12px;padding:12px 14px;
+ box-shadow:0 12px 30px #0f172a55;line-height:1.55}
+.tip .val{background:#1e293b;border:1px solid #334155;border-radius:6px;padding:4px 8px}
+.legend{padding:14px 20px 18px;font-size:11.5px;line-height:1.6;color:var(--muted);background:#f8fafc;border-top:1px solid var(--line)}
+.legend b{color:#334155}
+.compInfo{padding:22px 22px 26px;background:#fff;border-top:1px solid var(--line)}
+.compInfo h3{font-size:16px;font-weight:700;margin:0 0 14px;padding-left:10px;border-left:4px solid var(--accent)}
+.compGrid{gap:12px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.compCard{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.55;
+ color:#334155;background:linear-gradient(180deg,#fff,#f8fafc);transition:transform .15s,box-shadow .15s}
+.compCard:hover{transform:translateY(-2px);box-shadow:0 10px 24px -10px #0f172a40}
+.compCard b{font-size:13px;color:var(--ink);margin-bottom:5px}
+#consumoTotal{right:20px;top:20px;border-radius:14px;padding:12px 16px;min-width:200px;
+ background:linear-gradient(160deg,#0f172a,#1e293b);border:1px solid #334155;box-shadow:0 12px 30px -8px #0f172a70}
+#consumoTotal b{letter-spacing:.08em;font-size:11px}
+#consumoTotal .big{font-size:22px;letter-spacing:-.01em}
+#circuitControls{right:20px;top:138px}
+#powerToggle{border-radius:999px;padding:10px 18px;font-size:13px;letter-spacing:.02em;transition:transform .12s,filter .12s;box-shadow:0 8px 20px -6px #0006}
+#powerToggle:hover{filter:brightness(1.08);transform:translateY(-1px)}
+#powerToggle:active{transform:translateY(0)}
+#startOverlay{background:radial-gradient(800px 500px at 50% 30%,rgba(37,99,235,.35),transparent 60%),rgba(15,23,42,.9);backdrop-filter:blur(6px)}
+#startCard{border-radius:20px;padding:34px 30px;box-shadow:0 30px 80px #000a;border-top:5px solid var(--accent)}
+#startCard h2{font-size:24px;font-weight:750;letter-spacing:-.01em}
+#startCard p{font-size:13.5px;line-height:1.65;color:#475569}
+#startBtn{border-radius:999px;padding:13px 28px;margin-top:6px;background:linear-gradient(180deg,#16a34a,#067647);box-shadow:0 10px 24px -8px #067647;transition:transform .12s,filter .12s}
+#startBtn:hover{transform:translateY(-1px);filter:brightness(1.07)}
+
+/* ===== Aparência realista dos componentes ===== */
+#tr .sym,#oki .sym{fill:url(#gIc);stroke:#0b0d10;rx:5px;ry:5px}
+#emit .sym,#recv .sym{fill:url(#gPcb);stroke:#052e16;rx:8px;ry:8px}
+#ft .sym{fill:url(#gAlu);stroke:#6b7280}
+#j2 .sym{fill:url(#gTerm);stroke:#14532d}
+#pc .sym{fill:#1e293b;stroke:#0f172a}
+.hover:hover .sym{stroke:#2563eb!important}
+#tr text,#oki text,#emit text,#recv text,#j2 text,#pc text{fill:#f1f5f9}
+#pc .small{fill:#cbd5e1}#pc #csvTxt{fill:#86efac}#recv #rxTxt{fill:#fde68a}
+#emit path[stroke="#7f56d9"],#recv path[stroke="#7f56d9"]{stroke:#c4b5fd}
+#tr .pin,#oki .pin,#emit .pin,#recv .pin{stroke:#b4bcc8;stroke-width:6;stroke-linecap:butt}
+.usb{stroke:#111827;stroke-width:5}
+
+/* ===== ESP-NOW como transmissão sem fio ===== */
+.radio{stroke-width:2;stroke-dasharray:2 7;opacity:.3}
+#recv #rxTxt{fill:#fde68a}
+@media(max-width:900px){
+ header{padding:14px 16px}header h2{font-size:18px}
+ #consumoTotal{right:10px;top:10px;min-width:150px;padding:8px 10px}#consumoTotal .big{font-size:17px}
+ #circuitControls{right:10px;top:104px}#powerToggle{padding:8px 12px;font-size:12px}
+ .wrap{padding:14px 8px 30px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<div id="circuitControls"><button id="powerToggle">■ Desligar circuito</button></div>
+<div id="consumoTotal"><b>CONSUMO DO CIRCUITO</b><br>
+<span id="totalState">Circuito desligado</span><br>
+<span class="big" id="totalCurrent">0mA</span><br>
+<span id="totalPower">Potência: 0W</span>
+</div>
+<div id="startOverlay"><div id="startCard">
+<h2>Sistema de Telemetria</h2>
+<p>O circuito inicia desligado. Clique em <b>Iniciar circuito</b> para energizar o modelo e começar o fluxo FT500 → CAN → ESP32 emissor → ESP-NOW → ESP32 receptor → computador.</p>
+<button id="startBtn">▶ Iniciar circuito</button>
+</div></div>
+<header><h2>Esquemático interativo — Sistema de Telemetria</h2>
+<div class="sub">Passe o mouse sobre componentes e conexões para ver função, tensão e corrente.
+<span id="runState">● DESLIGADO</span></div></header>
+<div class="wrap"><div class="board">
+<svg id="sch" viewBox="0 0 1250 700">
+<defs>
+<linearGradient id="gIc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#454a53"/><stop offset=".5" stop-color="#23262c"/><stop offset="1" stop-color="#15171b"/></linearGradient>
+<linearGradient id="gPcb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1b6b3a"/><stop offset="1" stop-color="#0b3d20"/></linearGradient>
+<linearGradient id="gMetal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset=".5" stop-color="#cbd5e1"/><stop offset="1" stop-color="#94a3b8"/></linearGradient>
+<linearGradient id="gAlu" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f1f5f9"/><stop offset="1" stop-color="#a8b3c2"/></linearGradient>
+<linearGradient id="gTerm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#0f7a4a"/></linearGradient>
+<radialGradient id="gCap" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#d97706"/></radialGradient>
+<linearGradient id="gRes" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdb98a"/><stop offset=".4" stop-color="#f0e2b6"/><stop offset="1" stop-color="#c2ad7c"/></linearGradient>
+<g id="espDeco">
+ <circle cx="703" cy="78" r="5" fill="#0b1f14" stroke="#facc15"/><circle cx="902" cy="78" r="5" fill="#0b1f14" stroke="#facc15"/><circle cx="703" cy="292" r="5" fill="#0b1f14" stroke="#facc15"/><circle cx="902" cy="292" r="5" fill="#0b1f14" stroke="#facc15"/>
+ <rect x="815" y="125" width="80" height="75" rx="3" fill="url(#gMetal)" stroke="#475569"/><path d="M825 150 H885 M825 165 H885" stroke="#94a3b8"/>
+ <path d="M886 72 V82 H892 V72 H898 V92 H886 M898 92 V108" fill="none" stroke="#fbbf24" stroke-width="2"/>
+ <circle cx="880" cy="285" r="3.5" fill="#ef4444"/>
+ <path d="M790 210 q12-12 24 0 M795 217 q7-7 14 0 M800 224 q2-2 4 0" fill="none" stroke="#c4b5fd" stroke-width="2"/>
+ <rect x="784.5" y="293" width="36" height="16" rx="8" fill="url(#gMetal)" stroke="#475569"/><rect x="792.5" y="298" width="20" height="6" rx="3" fill="#111827"/>
+</g>
+</defs>
+
+<!-- FT500 -->
+<g id="ft" class="hover" data-tip="ft">
+ <rect class="sym" x="45" y="80" width="180" height="150" rx="5"/>
+ <text class="txt title" x="135" y="105" text-anchor="middle">J1 — FT500 / FTCAN 2.0</text>
+ <rect x="72" y="120" width="126" height="60" rx="3" fill="#eef2f6" stroke="#98a2b3"/>
+ <text class="small" x="135" y="143" text-anchor="middle">ECU / aquisição</text>
+ <text class="small" x="135" y="160" text-anchor="middle">dos sensores</text>
+ <circle cx="58" cy="93" r="4" fill="#6b7280"/><circle cx="212" cy="93" r="4" fill="#6b7280"/><circle cx="58" cy="217" r="4" fill="#6b7280"/><circle cx="212" cy="217" r="4" fill="#6b7280"/>
+ <rect x="221" y="114" width="14" height="82" rx="3" fill="#1f2937" stroke="#0b0d10"/>
+ <line class="pin" x1="225" y1="130" x2="255" y2="130"/><text class="small" x="218" y="126" text-anchor="end">CAN-H</text>
+ <line class="pin" x1="225" y1="180" x2="255" y2="180"/><text class="small" x="218" y="176" text-anchor="end">CAN-L</text>
+</g>
+
+<!-- SN65HVD230 -->
+<g id="tr" class="hover" data-tip="tr">
+ <rect class="sym" x="350" y="70" width="205" height="190"/>
+ <text class="txt title" x="452" y="94" text-anchor="middle">U1 — SN65HVD230</text>
+ <text class="small" x="452" y="111" text-anchor="middle">CAN TRANSCEIVER 3,3V</text>
+ <circle cx="365" cy="85" r="4" fill="#9ca3af"/><rect x="354" y="74" width="197" height="182" rx="4" fill="none" stroke="rgba(255,255,255,.14)"/>
+ <line class="pin" x1="350" y1="130" x2="320" y2="130"/><text class="small" x="358" y="126">7 CANH</text>
+ <line class="pin" x1="350" y1="180" x2="320" y2="180"/><text class="small" x="358" y="176">6 CANL</text>
+ <line class="pin" x1="555" y1="130" x2="585" y2="130"/><text class="small" x="547" y="126" text-anchor="end">1 D/TXD</text>
+ <line class="pin" x1="555" y1="180" x2="585" y2="180"/><text class="small" x="547" y="176" text-anchor="end">4 R/RXD</text>
+ <line class="pin" x1="430" y1="70" x2="430" y2="40"/><text class="small" x="438" y="61">3 VCC</text>
+ <line class="pin" x1="475" y1="260" x2="475" y2="290"/><text class="small" x="483" y="278">2 GND</text>
+</g>
+
+<!-- 120R -->
+<g id="r1"><path d="M290 130 V145 M290 165 V180" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+<rect x="283" y="142" width="14" height="26" rx="6" fill="url(#gRes)" stroke="#8a7a52"/>
+<rect x="283" y="147" width="14" height="3" fill="#7c3f12"/><rect x="283" y="153" width="14" height="3" fill="#dc2626"/><rect x="283" y="159" width="14" height="3" fill="#7c3f12"/><rect x="283" y="164" width="14" height="2.5" fill="#d4a017"/></g>
+<text class="small" x="276" y="158" text-anchor="end">R1</text><text class="small" x="276" y="172" text-anchor="end">120Ω</text>
+
+<!-- ESP emitter -->
+<g id="emit" class="hover" data-tip="emit">
+ <rect class="sym" x="690" y="65" width="225" height="240"/>
+ <text class="txt title" x="802" y="91" text-anchor="middle">U3 — ESP32-C3 EMISSOR</text>
+ <text class="small" x="802" y="110" text-anchor="middle">TWAI + ESP-NOW</text>
+ <line class="pin" x1="690" y1="130" x2="660" y2="130"/><text class="small" x="698" y="126">CAN_TX</text>
+ <line class="pin" x1="690" y1="180" x2="660" y2="180"/><text class="small" x="698" y="176">CAN_RX / TWAI</text>
+ <line class="pin" x1="760" y1="305" x2="760" y2="335"/><text class="small" x="768" y="322">5V</text>
+ <line class="pin" x1="835" y1="305" x2="835" y2="335"/><text class="small" x="843" y="322">GND</text>
+ <line class="pin" x1="735" y1="65" x2="735" y2="35"/><text class="small" x="743" y="57">3V3</text>
+ <use href="#espDeco"/>
+</g>
+
+<!-- CAN nets -->
+<path class="net canh" d="M255 130 H320"/><path class="net canl" d="M255 180 H320"/>
+<text class="netlabel" x="262" y="120" fill="#a16207">CAN-H</text><text class="netlabel" x="262" y="198" fill="#15803d">CAN-L</text>
+
+<!-- TWAI logic -->
+<path class="net logic" d="M660 130 H585"/><path class="net logic" d="M585 180 H660"/>
+<text class="netlabel" x="600" y="119" fill="#0369a1">CAN_TX → D</text>
+<text class="netlabel" x="600" y="199" fill="#0369a1">R → CAN_RX</text>
+
+<!-- power connector -->
+<g id="j2" class="hover" data-tip="power">
+ <rect class="sym" x="55" y="430" width="150" height="90"/>
+ <text class="txt title" x="130" y="454" text-anchor="middle">J2 — 12V VEÍCULO</text>
+ <text class="small" x="130" y="480" text-anchor="middle">+12V</text>
+ <text class="small" x="130" y="500" text-anchor="middle">GND</text>
+ <line class="pin" x1="205" y1="475" x2="235" y2="475"/>
+ <line class="pin" x1="130" y1="520" x2="130" y2="550"/>
+ <circle cx="80" cy="477" r="9" fill="url(#gMetal)" stroke="#475569"/><path d="M74 477 H86 M80 471 V483" stroke="#475569" stroke-width="2"/>
+ <circle cx="80" cy="500" r="9" fill="url(#gMetal)" stroke="#475569"/><path d="M74 500 H86 M80 494 V506" stroke="#475569" stroke-width="2"/>
+</g>
+
+<!-- OKI -->
+<g id="oki" class="hover" data-tip="oki">
+ <rect class="sym" x="330" y="415" width="220" height="125"/>
+ <text class="txt title" x="440" y="440" text-anchor="middle">U2 — OKI-78SR-5/1.5-W36-C</text>
+ <text class="small" x="440" y="458" text-anchor="middle">12V → 5V</text>
+ <rect x="334" y="419" width="212" height="117" rx="4" fill="none" stroke="rgba(255,255,255,.14)"/><circle cx="346" cy="431" r="3.5" fill="#9ca3af"/>
+ <line class="pin" x1="330" y1="475" x2="300" y2="475"/><text class="small" x="340" y="470">1 VIN</text>
+ <line class="pin" x1="550" y1="475" x2="580" y2="475"/><text class="small" x="540" y="470" text-anchor="end">3 VOUT</text>
+ <line class="pin" x1="440" y1="540" x2="440" y2="570"/><text class="small" x="448" y="558">2 GND</text>
+</g>
+
+<!-- power nets -->
+<path class="net pwr" d="M235 475 H300"/><text class="netlabel" x="242" y="464" fill="#b42318">+12V</text>
+<path class="net v5" d="M580 475 H760 V335"/><text class="netlabel" x="600" y="463" fill="#c2410c">+5V</text>
+<path class="net gnd" d="M130 550 V610 H835 V335"/><path class="net gnd" d="M440 570 V610"/><path class="net gnd" d="M475 290 V610"/>
+<text class="netlabel" x="255" y="630" fill="#344054">GND COMUM</text>
+
+<!-- 3V3 to transceiver VCC -->
+<path class="net v33" d="M735 35 H620 V20 H430 V40"/><text class="netlabel" x="535" y="16" fill="#6d28d9">+3V3</text>
+
+<!-- C1 decoupling -->
+<g id="c1"><path d="M500 20 V33 M500 49 V56" stroke="#9ca3af" stroke-width="3" stroke-linecap="round"/>
+<circle cx="500" cy="41" r="9" fill="url(#gCap)" stroke="#92400e"/>
+<path d="M489 57 H511 M493 61 H507 M497 65 H503" stroke="#475467" stroke-width="2" stroke-linecap="round"/>
+<circle class="junction" cx="500" cy="20" r="4" fill="#7c3aed"/></g>
+<text class="small" x="515" y="45">C1 100nF</text>
+
+<!-- ESP-NOW -->
+<g id="rf"><path class="radio" d="M915 205 H1010"/>
+<g fill="none" stroke="#7f56d9" stroke-width="3" stroke-linecap="round">
+ <path d="M926 193 Q935 205 926 217"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin="0s" repeatCount="indefinite"/></path>
+ <path d="M936 184 Q951 205 936 226"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin=".2s" repeatCount="indefinite"/></path>
+ <path d="M946 175 Q967 205 946 235"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin=".4s" repeatCount="indefinite"/></path>
+ <path d="M979 175 Q958 205 979 235"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin=".6s" repeatCount="indefinite"/></path>
+ <path d="M989 184 Q974 205 989 226"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin=".8s" repeatCount="indefinite"/></path>
+ <path d="M999 193 Q990 205 999 217"><animate attributeName="opacity" values=".15;1;.15" dur="1.2s" begin="1s" repeatCount="indefinite"/></path>
+</g></g>
+<text class="netlabel" x="962.5" y="160" text-anchor="middle" fill="#7f56d9">ESP-NOW 2,4GHz</text>
+<g class="hover" data-tip="radio"><path class="hot" d="M915 205 H1010"/></g>
+
+<!-- Receiver -->
+<g id="recv" class="hover" data-tip="recv">
+ <rect class="sym" x="1010" y="65" width="225" height="240"/>
+ <text class="txt title" x="1122.5" y="91" text-anchor="middle">U4 — ESP32-C3</text>
+ <text class="txt title" x="1122.5" y="110" text-anchor="middle">RECEPTOR</text>
+ <text class="small" x="1076" y="150" text-anchor="middle">Recebe ESP-NOW</text>
+ <text class="small" id="rxTxt" x="1076" y="172" text-anchor="middle">aguardando pacote...</text>
+ <line class="pin" x1="1122.5" y1="305" x2="1122.5" y2="365"/>
+ <text class="small" x="1131" y="352">USB</text>
+ <use href="#espDeco" x="320"/>
+ <rect x="1110.5" y="360" width="24" height="12" rx="2" fill="url(#gMetal)" stroke="#475569"/>
+</g>
+
+<!-- PC -->
+<path class="net usb" d="M1122.5 365 V430"/>
+<g id="pc" class="hover" data-tip="pc" transform="translate(17.5 0)">
+ <rect class="sym" x="1005" y="430" width="200" height="130"/>
+ <rect x="1013" y="438" width="184" height="114" rx="4" fill="#0b1220" stroke="#334155"/>
+ <rect x="1085" y="560" width="40" height="12" fill="url(#gMetal)"/><rect x="1060" y="572" width="90" height="7" rx="3" fill="url(#gMetal)" stroke="#64748b"/>
+ <text class="txt title" x="1105" y="457" text-anchor="middle">COMPUTADOR</text>
+ <text class="small" x="1105" y="482" text-anchor="middle">USB / Serial</text>
+ <text class="small" x="1105" y="501" text-anchor="middle">Python / PySerial</text>
+ <text class="small" id="csvTxt" x="1105" y="528" text-anchor="middle">CSV aguardando...</text>
+</g>
+
+<!-- animated flow: no animation on GND -->
+<circle class="dot" r="6" fill="#dc2626"><animateMotion dur="1.8s" repeatCount="indefinite" path="M235 475 H300"/></circle>
+<circle class="dot" r="6" fill="#f97316"><animateMotion dur="2s" repeatCount="indefinite" path="M580 475 H760 V335"/></circle>
+<circle class="dot" r="5" fill="#7c3aed"><animateMotion dur="1.7s" repeatCount="indefinite" path="M735 35 H620 V20 H430 V40"/></circle>
+<circle r="5" fill="#eab308"><animateMotion dur=".8s" repeatCount="indefinite" path="M255 130 H320"/></circle>
+<circle r="5" fill="#16a34a"><animateMotion dur=".8s" repeatCount="indefinite" path="M255 180 H320"/></circle>
+<circle r="5" fill="#0284c7"><animateMotion dur=".9s" repeatCount="indefinite" path="M585 180 H660"/></circle>
+<circle r="4" fill="#7f56d9"><animateMotion dur="1.2s" repeatCount="indefinite" path="M930 205 H995"/></circle>
+<circle r="5" fill="#344054"><animateMotion dur="1.1s" repeatCount="indefinite" path="M1122.5 365 V430"/></circle>
+
+
+
+<!-- acabamento visual: nós elétricos e símbolos de terra -->
+<g id="realisticDetails">
+ <circle class="junction" cx="255" cy="130" r="5" fill="#eab308"/><circle class="junction" cx="320" cy="130" r="5" fill="#eab308"/>
+ <circle class="junction" cx="255" cy="180" r="5" fill="#16a34a"/><circle class="junction" cx="320" cy="180" r="5" fill="#16a34a"/>
+ <circle class="junction" cx="585" cy="130" r="4" fill="#0284c7"/><circle class="junction" cx="660" cy="130" r="4" fill="#0284c7"/>
+ <circle class="junction" cx="585" cy="180" r="4" fill="#0284c7"/><circle class="junction" cx="660" cy="180" r="4" fill="#0284c7"/>
+ <circle class="junction" cx="300" cy="475" r="5" fill="#dc2626"/><circle class="junction" cx="580" cy="475" r="5" fill="#f97316"/>
+ <circle class="junction" cx="760" cy="335" r="5" fill="#f97316"/><circle class="junction" cx="735" cy="35" r="5" fill="#7c3aed"/>
+ <circle class="junction" cx="430" cy="40" r="5" fill="#7c3aed"/>
+ <circle class="junction" cx="440" cy="610" r="5" fill="#475467"/><circle class="junction" cx="475" cy="610" r="5" fill="#475467"/>
+ <!-- ground reference symbol -->
+ <path d="M620 610 V632 M606 632 H634 M611 638 H629 M616 644 H624" stroke="#475467" stroke-width="2" fill="none"/>
+ <text class="small" x="642" y="640">0V / GND</text>
+ <!-- section titles -->
+ <rect class="deviceTag" x="34" y="48" width="205" height="24" rx="5"/><text class="small" x="136" y="64" text-anchor="middle" font-weight="bold">REDE CAN / ECU</text>
+ <rect class="deviceTag" x="676" y="38" width="250" height="24" rx="5"/><text class="small" x="801" y="54" text-anchor="middle" font-weight="bold">NÓ EMISSOR</text>
+ <rect class="deviceTag" x="40" y="393" width="525" height="24" rx="5"/><text class="small" x="302" y="409" text-anchor="middle" font-weight="bold">ALIMENTAÇÃO DO VEÍCULO</text>
+ <rect class="deviceTag" x="1012.5" y="38" width="220" height="24" rx="5"/><text class="small" x="1122.5" y="54" text-anchor="middle" font-weight="bold">NÓ RECEPTOR / PC</text>
+</g>
+
+<!-- ÁREAS DE HOVER DAS CONEXÕES -->
+<g id="wireHover">
+ <path class="hot" data-wire="canh" d="M255 130 H320"/>
+ <path class="hot" data-wire="canl" d="M255 180 H320"/>
+ <path class="hot" data-wire="cantx" d="M660 130 H585"/>
+ <path class="hot" data-wire="canrx" d="M585 180 H660"/>
+ <path class="hot" data-wire="vin12" d="M235 475 H300"/>
+ <path class="hot" data-wire="vout5" d="M580 475 H760 V335"/>
+ <path class="hot" data-wire="gnd" d="M130 550 V610 H835 V335"/>
+ <path class="hot" data-wire="gndoki" d="M440 570 V610"/>
+ <path class="hot" data-wire="gndtr" d="M475 290 V610"/>
+ <path class="hot" data-wire="v33" d="M735 35 H620 V20 H430 V40"/>
+ <path class="hot" data-wire="espnow" d="M915 205 H1010"/>
+ <path class="hot" data-wire="usb" d="M1122.5 365 V430"/>
+</g>
+
+</svg>
+<div class="legend"><b>* Valores de corrente apresentados como estimativas do modelo didático, não como medição física.</b>
+ O consumo total mostrado corresponde ao lado alimentado pelos 12V do veículo; ESP32 receptor e computador ficam fora porque são alimentados pelo USB do PC.<br><b>Fluxo:</b> FT500 → CAN-H/CAN-L → SN65HVD230 → CAN_RX/TWAI do ESP32 emissor → ESP-NOW → ESP32 receptor → USB/Serial → computador/CSV. Os GPIOs TWAI permanecem identificados por função, sem inventar números de pino.</div>
+
+<div class="compInfo">
+<h3>O que cada componente está fazendo neste sistema</h3>
+<div class="compGrid">
+ <div class="compCard"><b>FT500</b>Faz a aquisição dos sensores do veículo e disponibiliza os dados na rede CAN pelo protocolo FTCAN. Neste simulador, é a origem dos quadros CAN que seguem por CAN-H e CAN-L.</div>
+ <div class="compCard"><b>SN65HVD230</b>É o transceiver físico da rede CAN. Recebe CAN-H/CAN-L e converte o sinal diferencial para nível lógico em R/RXD, que segue ao CAN_RX do ESP32. No sentido de transmissão, recebe D/TXD do CAN_TX do ESP32.</div>
+ <div class="compCard"><b>ESP32-C3 emissor</b>Recebe os quadros CAN pelo periférico TWAI, identifica os dados de interesse, combina os bytes, aplica as escalas e monta o pacote de telemetria. Depois transmite esse pacote por ESP-NOW.</div>
+ <div class="compCard"><b>OKI-78SR-5/1.5-W36-C</b>Recebe a alimentação de 12V do veículo em VIN e fornece 5V regulados em VOUT para alimentar a placa ESP32-C3 emissora.</div>
+ <div class="compCard"><b>C1 — 100nF</b>Capacitor de desacoplamento ligado entre a alimentação 3,3V do transceiver e GND. Ajuda a reduzir perturbações rápidas na alimentação próxima ao SN65HVD230.</div>
+ <div class="compCard"><b>R1 — 120Ω</b>Representa a terminação entre CAN-H e CAN-L. A terminação correta depende da posição do nó na rede CAN; em um barramento CAN completo, as terminações ficam nas extremidades.</div>
+ <div class="compCard"><b>ESP32-C3 receptor</b>Recebe sem fio o pacote enviado pelo ESP32 emissor via ESP-NOW, recupera os valores da telemetria e os encaminha ao computador.</div>
+ <div class="compCard"><b>Computador</b>Recebe os dados do ESP32 receptor pela comunicação USB/Serial. O software no PC pode ler a porta serial, organizar os valores e registrá-los em formato CSV.</div>
+</div></div>
+</div></div>
+<div id="tip" class="tip"></div>
+<script>
+const tip=document.getElementById('tip');
+const data={
+ft:`<b>FT500 — quadros CAN saindo</b><br><span class="val">Consumo neste ponto: não contabilizado; FT500 já pertence ao sistema do veículo</span><br>
+ID 0x18FF0001 | DATA 01 22 → 29,0°C<br>
+ID 0x18FF0002 | DATA 19 64 → 6500rpm<br>
+ID 0x18FF0003 | DATA 03 39 → 82,5% TPS<br>
+ID 0x18FF0004 | DATA 10 9A → 4,250bar óleo<br>
+<span style="color:#fdb022">→ transmitidos por CAN-H/CAN-L</span><br>
+<small>IDs exibidos são exemplos usados na simulação.</small>`,
+tr:`<b>SN65HVD230</b><br><span class="val">3,3V | até ≈17mA | até ≈56mW</span><br>CANH/CANL: lado físico do barramento.<br>D/TXD: recebe CAN_TX do ESP32.<br>R/RXD: entrega o sinal ao CAN_RX/TWAI do ESP32.<br>VCC: 3,3V | GND comum.`,
+emit:`<b>ESP32-C3 EMISSOR — TWAI</b><br><span class="val">Consumo varia com processamento e rádio; cenário do modelo usa Wi-Fi TX como condição de maior consumo</span><br>✓ quadro recebido em CAN_RX<br>ID: 0x18FF0002<br>DATA: 19 64<br>bytes → raw: 6500<br>RPM = 6500rpm<br><span style="color:#86efac">→ dado entra no pacote ESP-NOW</span>`,
+power:`<b>Entrada do veículo</b><br><span class="val">TOTAL DO MODELO: 12V | ≈128mA | ≈1,54W</span><br>+12V → OKI VIN (pino 1)<br>GND → terra comum do circuito.`,
+oki:`<b>OKI-78SR</b><br><span class="val">Entrada ≈12V/128mA; saída ≈5V/278mA no cenário</span><br>Pino 1: VIN = 12V<br>Pino 2: GND<br>Pino 3: VOUT = 5V<br>→ alimenta o ESP32 emissor.`,
+radio:`<b>ESP-NOW — pacote transmitido</b><br>RPM 6500 | TPS 82,5%<br>Tmotor 29,0°C | Tar 32,0°C<br>Óleo 4,250bar | Comb. 4,100bar<br>MAP 1,350bar | λ 0,980`,
+recv:`<b>ESP32-C3 RECEPTOR</b><br><span class="val">Alimentado pelo USB do computador; não incluído no consumo de 12V do veículo</span><br>✓ recebe o pacote ESP-NOW<br>organiza os campos recebidos<br><span style="color:#86efac">→ envia via USB/Serial ao computador</span>`,
+pc:`<b>Computador</b><br><span class="val">Fonte externa ao circuito veicular</span><br>Recebe pela porta serial.<br>CSV:<br>6500,82.5,29.0,32.0,4.250,4.100,1.350,0.980`
+};
+document.querySelectorAll('.hover').forEach(el=>{
+ el.addEventListener('mousemove',e=>{tip.innerHTML=data[el.dataset.tip]||'';tip.style.display='block';tip.style.left=(e.clientX+15)+'px';tip.style.top=(e.clientY+15)+'px'});
+ el.addEventListener('mouseleave',()=>tip.style.display='none');
+});
+let n=0;
+setInterval(()=>{
+ if(!circuitStarted)return;
+ n++;
+ document.getElementById('rxTxt').textContent=n%2?'● RECEBENDO ESP-NOW':'✓ PACOTE RECEBIDO';
+ document.getElementById('csvTxt').textContent=n%2?'USB → enviando...':'CSV → 6500,82.5,...';
+},700);
+
+const wireData={
+ canh:`<b>CAN-H</b><br><span class="from">Origem:</span> FT500<br><span class="to">Destino:</span> SN65HVD230 — CANH (pino 7)<br>Linha diferencial do barramento CAN.<br><span class="val">Tensão: varia conforme estado CAN</span><br><span class="val">Corrente: ≈33mA no modelo durante estado dominante*</span>`,
+ canl:`<b>CAN-L</b><br><span class="from">Origem:</span> FT500<br><span class="to">Destino:</span> SN65HVD230 — CANL (pino 6)<br>Linha complementar do par CAN.<br><span class="val">Tensão: varia conforme estado CAN</span><br><span class="val">Corrente: ≈33mA no modelo durante estado dominante*</span>`,
+ cantx:`<b>CAN_TX → D/TXD</b><br><span class="from">Origem:</span> ESP32-C3 — TWAI TX<br><span class="to">Destino:</span> SN65HVD230 — pino 1<br>Sinal lógico enviado ao transceiver.<br><span class="val">Tensão lógica: 0–3,3V</span><br><span class="val">Corrente: sinal lógico, não corrente de alimentação</span>`,
+ canrx:`<b>R/RXD → CAN_RX / TWAI</b><br><span class="from">Origem:</span> SN65HVD230 — pino 4<br><span class="to">Destino:</span> ESP32-C3 — CAN_RX<br>É por aqui que o TWAI recebe os bits do quadro CAN.<br><span class="val">Tensão lógica: 0–3,3V</span><br><span class="val">Corrente: sinal lógico, não corrente de alimentação</span>`,
+ vin12:`<b>ALIMENTAÇÃO +12V</b><br><span class="from">Origem:</span> veículo<br><span class="to">Destino:</span> OKI — VIN (pino 1)<br><span class="val">Tensão: 12V</span><br><span class="val">Corrente: ≈128mA (estimada no modelo)</span><br><span class="val">Potência: ≈1,54W</span>`,
+ vout5:`<b>ALIMENTAÇÃO +5V</b><br><span class="from">Origem:</span> OKI — VOUT (pino 3)<br><span class="to">Destino:</span> ESP32-C3 emissor<br><span class="val">Tensão: 5V</span><br><span class="val">Corrente: ≈278mA (cenário de simulação)</span><br><span class="val">Potência: ≈1,39W</span>`,
+ gnd:`<b>GND COMUM</b><br>Referência elétrica compartilhada pelo circuito.<br><span class="val">Tensão: 0V de referência</span><br><span class="val">Corrente: corrente de retorno depende da carga</span><br>A animação de corrente no GND permanece desativada.`,
+ gndoki:`<b>GND DO OKI</b><br>OKI pino 2 → GND comum.<br><span class="val">Tensão: 0V de referência</span><br><span class="val">Corrente: retorno da corrente fornecida pelo conversor</span>`,
+ gndtr:`<b>GND DO SN65HVD230</b><br>Pino 2 → GND comum.<br><span class="val">Tensão: 0V de referência</span><br><span class="val">Corrente: retorno da alimentação do transceiver</span>`,
+ v33:`<b>ALIMENTAÇÃO +3,3V</b><br><span class="from">Origem:</span> ESP32-C3 — 3V3<br><span class="to">Destino:</span> SN65HVD230 — VCC (pino 3)<br><span class="val">Tensão: 3,3V</span><br><span class="val">Corrente considerada: até 17mA para o transceiver</span><br><span class="val">Potência: até ≈56mW</span>`,
+ espnow:`<b>ESP-NOW</b><br><span class="from">Origem:</span> ESP32-C3 emissor<br><span class="to">Destino:</span> ESP32-C3 receptor<br>Enlace de rádio, portanto não existe corrente elétrica percorrendo um fio entre as placas.<br><span class="val">Tensão no enlace: não se aplica</span><br><span class="val">Corrente no enlace: não se aplica</span><br>O consumo ocorre nos rádios dos ESP32.`,
+ usb:`<b>USB / SERIAL</b><br><span class="from">Origem:</span> ESP32-C3 receptor<br><span class="to">Destino:</span> computador<br><span class="val">Alimentação USB: 5V</span><br><span class="val">Corrente: depende do consumo da placa receptora</span><br>Os dados de telemetria seguem pela comunicação serial USB.`
+};
+
+const pointElectrical={
+ canh:['CAN-H','tensão variável conforme estado CAN','≈33mA no modelo em dominante*','potência não tratada como carga DC isolada'],
+ canl:['CAN-L','tensão variável conforme estado CAN','≈33mA no modelo em dominante*','potência não tratada como carga DC isolada'],
+ cantx:['CAN_TX / TXD','0–3,3V lógico','corrente de entrada lógica muito pequena','não contabilizado como ramo de potência'],
+ canrx:['CAN_RX / RXD','0–3,3V lógico','corrente de entrada lógica muito pequena','não contabilizado como ramo de potência'],
+ vin12:['Entrada 12V','12V','≈128mA','≈1,54W'],
+ vout5:['Saída 5V','5V','≈278mA','≈1,39W'],
+ gnd:['GND comum','0V de referência','retorno ≈ corrente total da carga','tensão de referência = 0V'],
+ gndoki:['GND do OKI','0V de referência','retorno do conversor','—'],
+ gndtr:['GND do transceiver','0V de referência','até ≈17mA','—'],
+ v33:['3,3V do transceiver','3,3V','até ≈17mA','até ≈56mW'],
+ espnow:['ESP-NOW','não se aplica ao enlace','não existe corrente percorrendo o ar','consumo ocorre no rádio do ESP32'],
+ usb:['USB / Serial','5V na alimentação USB','depende da placa receptora','receptor alimentado pelo PC; fora do consumo veicular']
+};
+
+document.querySelectorAll('#wireHover .hot').forEach(el=>{
+ el.addEventListener('mousemove',e=>{
+   const w=el.dataset.wire, eInfo=pointElectrical[w];
+   tip.innerHTML=(wireData[w]||'')+(eInfo?'<hr style="border:0;border-top:1px solid #475467;margin:7px 0"><b>CONSUMO NESTE PONTO</b><br>Tensão: '+eInfo[1]+'<br>Corrente: '+eInfo[2]+'<br>Potência: '+eInfo[3]:'');
+   tip.style.display='block';
+   let x=e.clientX+16,y=e.clientY+16;
+   if(x+350>innerWidth)x=e.clientX-350;
+   if(y+180>innerHeight)y=e.clientY-180;
+   tip.style.left=x+'px';tip.style.top=y+'px';
+ });
+ el.addEventListener('mouseleave',()=>tip.style.display='none');
+});
+
+
+let circuitStarted=false;
+const svgCircuit=document.getElementById('sch');
+try{svgCircuit.pauseAnimations()}catch(e){}
+document.getElementById('rxTxt').textContent='circuito desligado';
+document.getElementById('csvTxt').textContent='circuito desligado';
+
+document.getElementById('startBtn').addEventListener('click',()=>{
+ circuitStarted=true;
+ document.getElementById('startOverlay').style.display='none';
+ document.getElementById('runState').textContent='● FUNCIONANDO';
+ document.getElementById('runState').style.background='#d1fadf';
+ document.getElementById('runState').style.color='#067647';
+ try{svgCircuit.unpauseAnimations()}catch(e){}
+ document.getElementById('rxTxt').textContent='aguardando pacote...';
+ document.getElementById('csvTxt').textContent='CSV aguardando...';
+ document.getElementById('totalState').textContent='Entrada do veículo: 12V';
+ document.getElementById('totalCurrent').textContent='≈128mA';
+ document.getElementById('totalPower').textContent='Potência de entrada ≈1,54W';
+});
+
+const oldInterval=setInterval;
+
+
+function setCircuitPower(on){
+ circuitStarted=on;
+ if(on){
+   try{svgCircuit.unpauseAnimations()}catch(e){}
+   document.getElementById('runState').textContent='● FUNCIONANDO';
+   document.getElementById('runState').style.background='#d1fadf';
+   document.getElementById('runState').style.color='#067647';
+   document.getElementById('totalState').textContent='Entrada do veículo: 12V';
+   document.getElementById('totalCurrent').textContent='≈128mA';
+   document.getElementById('totalPower').textContent='Potência de entrada ≈1,54W';
+   document.getElementById('rxTxt').textContent='aguardando pacote...';
+   document.getElementById('csvTxt').textContent='CSV aguardando...';
+   powerToggle.textContent='■ Desligar circuito';
+   powerToggle.classList.remove('off');
+ }else{
+   try{svgCircuit.pauseAnimations()}catch(e){}
+   document.getElementById('runState').textContent='● DESLIGADO';
+   document.getElementById('runState').style.background='#fee4e2';
+   document.getElementById('runState').style.color='#b42318';
+   document.getElementById('totalState').textContent='Circuito desligado';
+   document.getElementById('totalCurrent').textContent='0mA';
+   document.getElementById('totalPower').textContent='Potência: 0W';
+   document.getElementById('rxTxt').textContent='circuito desligado';
+   document.getElementById('csvTxt').textContent='circuito desligado';
+   powerToggle.textContent='▶ Ligar circuito';
+   powerToggle.classList.add('off');
+ }
+}
+const powerToggle=document.getElementById('powerToggle');
+powerToggle.addEventListener('click',()=>setCircuitPower(!circuitStarted));
+
+</script></body></html>
